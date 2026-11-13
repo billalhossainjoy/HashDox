@@ -1,11 +1,7 @@
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-  Outlet,
-} from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { AppShell } from './components/AppShell';
 import { HomePage } from './pages/HomePage';
+import { ProjectsPage } from './pages/ProjectsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 const rootRoute = createRootRoute({
@@ -23,8 +19,13 @@ const indexRoute = createRoute({
   component: HomePage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute]);
+const projectsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/projects',
+  component: ProjectsPage,
+});
 
+const routeTree = rootRoute.addChildren([indexRoute, projectsRoute]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {
