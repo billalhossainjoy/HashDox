@@ -86,3 +86,18 @@ The new `projects` table requires a **reviewed migration** before runtime
 usage. CI validates schema generation and applies migrations to local D1;
 no remote D1 database is migrated automatically. Project API integration
 tests with a real authenticated Worker runtime are still needed.
+
+## Projects frontend
+
+The authenticated `/projects` route calls the owner-protected
+`/api/projects` endpoints using `fetch` with credentials. TanStack Query
+loads paginated project lists and invalidates cached project pages after
+create/update/delete operations.
+
+The Material UI table provides 20-row server pagination, page-scoped selection,
+an action menu for renaming/deleting, and explicit confirmation before deleting
+one or multiple projects. A signed-out user sees the Google sign-in screen.
+
+The frontend is not a substitute for server authorization. Deploy frontend and
+API under tested cookie and CORS settings; real Google OAuth end-to-end and
+live D1 integration tests remain outstanding.
