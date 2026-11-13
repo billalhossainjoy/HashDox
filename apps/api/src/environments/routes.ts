@@ -47,7 +47,7 @@ environmentRoutes.patch('/:environmentId', async (c) => {
   const projectId = c.req.param('projectId');
   if (!await projectExists(c.env, projectId)) return c.json({ error: 'Project not found' }, 404);
   const name = validateEnvironmentName(await c.req.json().catch(() => null));
-  if (!name) return c.json({ error: 'Expected name (1–60 characters)' }, 400);
+  if (!name || !environmentSlug(name)) return c.json({ error: 'Use an alphanumeric environment name (1–60 characters); spaces allowed' }, 400);
   const db = createDb(c.env);
   const [updated] = await db.update(environments).set({ name, updatedAt: new Date() })
     .where(and(eq(environments.projectId, projectId), eq(environments.id, c.req.param('environmentId'))))
