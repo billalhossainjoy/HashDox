@@ -1,0 +1,42 @@
+name: One-time lockfile bootstrap
+
+on:
+  push:
+    branches:
+      - chore/ci-lockfile-bootstrap
+    paths:
+      - '.github/workflows/bootstrap-lockfile.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: chore/ci-lockfile-bootstrap
+          persist-credentials: true
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve lockfile without lifecycle scripts
+        run: pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile
+      - name: Commit lockfile and remove one-time workflow
+        run: |
+          set -euo pipefail
+          test -s pnpm-lock.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+          git rm .github/workflows/bootstrap-lockfile.yml
+          git commit -m "chore(deps): commit generated pnpm lockfile"
+          git push origin HEAD:chore/ci-lockfile-bootstrap
