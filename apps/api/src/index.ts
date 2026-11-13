@@ -1,11 +1,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import type { AppBindings } from './env';
 
-type Bindings = {
-  FRONTEND_ORIGIN?: string;
-};
-
-const app = new Hono<{ Bindings: Bindings }>();
+const app = new Hono<{ Bindings: AppBindings }>();
 
 app.use(
   '/api/*',

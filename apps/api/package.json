@@ -7,13 +7,19 @@
     "dev": "wrangler dev",
     "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc --noEmit",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:execute:local": "wrangler d1 execute DB --local"
   },
   "dependencies": {
+    "drizzle-orm": "^0.44.0",
     "hono": "^4.0.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260101.0",
+    "drizzle-kit": "^0.31.0",
     "typescript": "~5.9.0",
     "wrangler": "^4.0.0"
   }
