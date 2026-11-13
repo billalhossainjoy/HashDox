@@ -1,0 +1,53 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+      - 'chore/**'
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Install, typecheck, build, and migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Build (no deployment)
+        run: pnpm build
+      - name: Generate Drizzle migration and verify output
+        run: |
+          pnpm --filter @hashdox/api db:generate
+          test -n "$(find apps/api/drizzle -maxdepth 1 -name '*.sql' -print -quit)"
+      - name: Apply migrations to isolated local D1
+        run: pnpm --filter @hashdox/api db:migrate:local
+      - name: Upload migration SQL for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drizzle-migrations
+          path: apps/api/drizzle/
+          if-no-files-found: ignore
+          retention-days: 7

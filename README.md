@@ -2,7 +2,7 @@
 
 A security-focused secrets management platform.
 
-This branch adds the initial Cloudflare D1 + Drizzle wiring to the React/Vite and Hono/Cloudflare Workers workspace. Authentication, production databases, encryption, and business schemas are intentionally not implemented yet.
+The frontend foundation uses React/Vite, Material UI, TanStack Router, and TanStack Query. The API uses Hono/Cloudflare Workers with initial D1 + Drizzle wiring. Authentication, production databases, encryption, and business schemas are intentionally not implemented yet.
 
 ## Requirements
 
@@ -25,6 +25,17 @@ pnpm dev:web
 
 - Web: http://localhost:5173
 - API: http://localhost:8787/api/health
+
+## Frontend foundation
+
+- `apps/web/src/main.tsx` wires Material UI, TanStack Query and TanStack Router providers.
+- `apps/web/src/theme.ts` holds initial Material UI tokens (not a completed Figma implementation).
+- `apps/web/src/router.tsx` defines a small typed route tree with a root layout and a home route.
+- `apps/web/src/components/AppShell.tsx` contains the reusable application shell.
+- `apps/web/src/lib/query-client.ts` creates the Query client. **Never cache secret plaintext** when secret endpoints are added.
+- Add new routes incrementally; this starter uses simple code-based routing without generated routes.
+
+No authentication, private pages, or API integration are included yet.
 
 ## Database setup
 
@@ -62,7 +73,7 @@ pnpm typecheck
 pnpm build
 ```
 
-Note: the initial workspace has not yet generated a `pnpm-lock.yaml`; run `pnpm install` and commit the resulting lockfile before shipping.
+Note: the initial workspace has not yet generated a `pnpm-lock.yaml`; run `pnpm install` and commit the resulting lockfile before shipping. The app has not been typechecked or built in this environment.
 
 ## Git conventions
 
@@ -71,3 +82,49 @@ Branch names: `chore/<topic>`, `feat/<topic>`, `fix/<topic>`.
 Commits: `type(scope): summary` (Conventional Commits).
 
 Review each branch before merging. Do not deploy without explicit approval.
+
+## Authentication foundation (branch `feat/google-auth-foundation`)
+
+This branch introduces Better Auth, Google OAuth, and the four core Drizzle
+SQLite auth tables. Authentication is **not ready for production** until
+dependencies, schema compatibility, migrations, OAuth callbacks and cookies are
+tested. It currently admits **only the configured owner Google email**;
+invited users and project permissions are intentionally not implemented.
+
+### Local setup
+
+1. Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`.
+2. Set `OWNER_EMAIL` to the one Google identity authorized for initial access.
+3. Generate a random `BETTER_AUTH_SECRET` with at least 32 characters.
+4. Create Google OAuth web credentials and set `GOOGLE_CLIENT_ID` and
+   `GOOGLE_CLIENT_SECRET` (do not commit either). Authorize
+   `http://localhost:8787/api/auth/callback/google` as a redirect URI.
+5. Optionally copy `apps/web/.env.example` to `apps/web/.env`.
+6. Install dependencies and generate/review the D1 schema migration:
+
+```bash
+pnpm install
+pnpm --filter @hashdox/api db:generate
+pnpm --filter @hashdox/api db:migrate:local
+```
+
+7. Start both applications using `pnpm dev:api` and `pnpm dev:web`.
+
+The authentication handler is mounted at `/api/auth/*`. An authenticated
+`GET /api/me` returns only the owner profile; unauthenticated calls return 401.
+
+The Drizzle schema is manually authored as a starting point. **Compare it
+against the installed Better Auth CLI's generated schema before applying any
+migration**, and commit the generated migration and pnpm lockfile only after
+verification. Never automatically migrate a remote database.
+
+### Production decisions still needed
+
+- Use approved same-site web/API domains or thoroughly validate cross-site
+  cookie behavior and trusted origins before deployment.
+- Introduce invitation-only account enrollment and user roles in a separate
+  reviewed change; do not remove the owner allowlist as a shortcut.
+- Store Worker credentials via Wrangler secrets (never `VITE_` variables).
+- Add authentication tests, dependency validation and build checks before
+  deploying.
+- No Cloudflare resources were created or deployed by this branch.
