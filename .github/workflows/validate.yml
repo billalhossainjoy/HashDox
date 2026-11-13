@@ -31,30 +31,8 @@ jobs:
         with:
           node-version: '22'
           package-manager-cache: false
-      - name: Detect lockfile
-        id: lockfile
-        shell: bash
-        run: |
-          if test -f pnpm-lock.yaml; then
-            echo 'present=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'present=false' >> "$GITHUB_OUTPUT"
-            echo '::warning::Missing pnpm-lock.yaml. Dependencies are not reproducibly pinned yet.'
-          fi
       - name: Install locked dependencies
-        if: steps.lockfile.outputs.present == 'true'
         run: pnpm install --frozen-lockfile
-      - name: Bootstrap dependencies (lockfile not yet committed)
-        if: steps.lockfile.outputs.present != 'true'
-        run: pnpm install --no-frozen-lockfile
-      - name: Export generated lockfile for review
-        if: steps.lockfile.outputs.present != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pnpm-lockfile-bootstrap
-          path: pnpm-lock.yaml
-          if-no-files-found: error
-          retention-days: 7
       - name: Typecheck
         run: pnpm typecheck
       - name: Build (no deployment)
@@ -63,6 +41,8 @@ jobs:
         run: |
           pnpm --filter @hashdox/api db:generate
           test -n "$(find apps/api/drizzle -maxdepth 1 -name '*.sql' -print -quit)"
+      - name: Apply migrations to isolated local D1
+        run: pnpm --filter @hashdox/api db:migrate:local
       - name: Upload migration SQL for review
         if: always()
         uses: actions/upload-artifact@v4
