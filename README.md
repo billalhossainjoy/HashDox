@@ -2,7 +2,7 @@
 
 A security-focused secrets management platform.
 
-This branch adds the initial Cloudflare D1 + Drizzle wiring to the React/Vite and Hono/Cloudflare Workers workspace. Authentication, production databases, encryption, and business schemas are intentionally not implemented yet.
+The frontend foundation uses React/Vite, Material UI, TanStack Router, and TanStack Query. The API uses Hono/Cloudflare Workers with initial D1 + Drizzle wiring. Authentication, production databases, encryption, and business schemas are intentionally not implemented yet.
 
 ## Requirements
 
@@ -25,6 +25,17 @@ pnpm dev:web
 
 - Web: http://localhost:5173
 - API: http://localhost:8787/api/health
+
+## Frontend foundation
+
+- `apps/web/src/main.tsx` wires Material UI, TanStack Query and TanStack Router providers.
+- `apps/web/src/theme.ts` holds initial Material UI tokens (not a completed Figma implementation).
+- `apps/web/src/router.tsx` defines a small typed route tree with a root layout and a home route.
+- `apps/web/src/components/AppShell.tsx` contains the reusable application shell.
+- `apps/web/src/lib/query-client.ts` creates the Query client. **Never cache secret plaintext** when secret endpoints are added.
+- Add new routes incrementally; this starter uses simple code-based routing without generated routes.
+
+No authentication, private pages, or API integration are included yet.
 
 ## Database setup
 
@@ -62,7 +73,7 @@ pnpm typecheck
 pnpm build
 ```
 
-Note: the initial workspace has not yet generated a `pnpm-lock.yaml`; run `pnpm install` and commit the resulting lockfile before shipping.
+Note: the initial workspace has not yet generated a `pnpm-lock.yaml`; run `pnpm install` and commit the resulting lockfile before shipping. The app has not been typechecked or built in this environment.
 
 ## Git conventions
 
