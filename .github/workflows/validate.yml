@@ -16,9 +16,9 @@ permissions:
 
 jobs:
   validate:
-    name: Typecheck, build and schema generation
+    name: Install, typecheck, build, and migrations
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,8 +30,31 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install dependencies
+          package-manager-cache: false
+      - name: Detect lockfile
+        id: lockfile
+        shell: bash
+        run: |
+          if test -f pnpm-lock.yaml; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo '::warning::Missing pnpm-lock.yaml. Dependencies are not reproducibly pinned yet.'
+          fi
+      - name: Install locked dependencies
+        if: steps.lockfile.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Bootstrap dependencies (lockfile not yet committed)
+        if: steps.lockfile.outputs.present != 'true'
         run: pnpm install --no-frozen-lockfile
+      - name: Export generated lockfile for review
+        if: steps.lockfile.outputs.present != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pnpm-lockfile-bootstrap
+          path: pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 7
       - name: Typecheck
         run: pnpm typecheck
       - name: Build (no deployment)
@@ -40,3 +63,11 @@ jobs:
         run: |
           pnpm --filter @hashdox/api db:generate
           test -n "$(find apps/api/drizzle -maxdepth 1 -name '*.sql' -print -quit)"
+      - name: Upload migration SQL for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drizzle-migrations
+          path: apps/api/drizzle/
+          if-no-files-found: ignore
+          retention-days: 7
