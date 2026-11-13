@@ -1,11 +1,10 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import {
-  Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
+  Alert, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, IconButton, Menu, MenuItem, Paper, Stack, Table, TableBody,
   TableCell, TableContainer, TableHead, TablePagination, TableRow, TextField,
   Typography,
 } from '@mui/material';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsApi, type Project } from '../lib/projects-api';
 import { authClient } from '../lib/auth-client';
@@ -67,7 +66,7 @@ function ProjectManager() {
     setEditor(state);
     setName(state.mode === 'edit' ? state.project.name : '');
   };
-  const openActions = (event: React.MouseEvent<HTMLElement>, project: Project) => {
+  const openActions = (event: MouseEvent<HTMLElement>, project: Project) => {
     setMenuAnchor(event.currentTarget);
     setMenuProject(project);
   };
@@ -99,7 +98,7 @@ function ProjectManager() {
             <TableHead>
               <TableRow>
                 <TableCell padding="checkbox">
-                  <input type="checkbox" aria-label="Select all projects on this page" checked={allSelected}
+                  <Checkbox aria-label="Select all projects on this page" checked={allSelected}
                     onChange={(e) => setSelected(e.target.checked ? rows.map((p) => p.id) : [])} />
                 </TableCell>
                 <TableCell>Project</TableCell>
@@ -117,7 +116,7 @@ function ProjectManager() {
               ) : rows.map((project) => (
                 <TableRow key={project.id} hover selected={selected.includes(project.id)}>
                   <TableCell padding="checkbox">
-                    <input type="checkbox" aria-label={`Select ${project.name}`} checked={selected.includes(project.id)}
+                    <Checkbox aria-label={`Select ${project.name}`} checked={selected.includes(project.id)}
                       onChange={(e) => setSelected((current) => e.target.checked
                         ? [...current, project.id] : current.filter((id) => id !== project.id))} />
                   </TableCell>
@@ -125,7 +124,7 @@ function ProjectManager() {
                   <TableCell>{displayDate(project.createdAt)}</TableCell>
                   <TableCell align="right">
                     <IconButton aria-label={`Actions for ${project.name}`} onClick={(e) => openActions(e, project)}>
-                      <MoreHorizIcon />
+                      ⋯
                     </IconButton>
                   </TableCell>
                 </TableRow>
