@@ -44,3 +44,16 @@ export const projects = sqliteTable('projects', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 }, (table) => [index('projects_created_at_idx').on(table.createdAt)]);
+
+/** Environment belongs to exactly one project; slugs remain stable after renaming. */
+export const environments = sqliteTable('environments', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  slug: text('slug').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  uniqueIndex('environments_project_slug_unique').on(table.projectId, table.slug),
+  index('environments_project_id_idx').on(table.projectId),
+]);
