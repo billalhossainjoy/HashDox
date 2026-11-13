@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { createAuth } from './auth';
 import type { AppBindings } from './env';
 import { requireOwner } from './security/require-owner';
+import { projectRoutes } from './projects/routes';
 
 const app = new Hono<{ Bindings: AppBindings }>();
 
@@ -26,5 +27,7 @@ app.get('/api/me', requireOwner, async (c) => {
   if (!session) return c.json({ error: 'Unauthorized' }, 401);
   return c.json({ id: session.user.id, name: session.user.name, email: session.user.email });
 });
+
+app.route('/api/projects', projectRoutes);
 
 export default app;
