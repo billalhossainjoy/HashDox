@@ -36,3 +36,11 @@ export const verification = sqliteTable('verification', {
  createdAt:integer('created_at',{mode:'timestamp_ms'}).notNull(),
  updatedAt:integer('updated_at',{mode:'timestamp_ms'}).notNull(),
 },t=>[index('verification_identifier_idx').on(t.identifier)]);
+
+/** Owner-managed projects; secrets and environments will be modeled separately. */
+export const projects = sqliteTable('projects', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [index('projects_created_at_idx').on(table.createdAt)]);
