@@ -4,6 +4,7 @@ import { APIError } from 'better-auth/api';
 import { createDb } from './db/client';
 import * as schema from './db/schema';
 import type { AppBindings } from './env';
+import { isOwnerEmail } from './security/owner';
 
 export function createAuth(env: AppBindings) {
   const ownerEmail = env.OWNER_EMAIL?.trim().toLowerCase();
@@ -22,7 +23,7 @@ export function createAuth(env: AppBindings) {
       user: {
         create: {
           before: async (candidate) => {
-            if (candidate.email.trim().toLowerCase() !== ownerEmail) {
+            if (!isOwnerEmail(candidate.email, ownerEmail)) {
               throw new APIError('FORBIDDEN', { message: 'Account is not authorized' });
             }
             return { data: candidate };
