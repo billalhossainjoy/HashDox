@@ -122,10 +122,12 @@ function ProjectManager() {
                         ? [...current, project.id] : current.filter((id) => id !== project.id))} />
                   </TableCell>
                   <TableCell>
-                    <Button component={Link} to="/projects/$projectId/environments"
-                      params={{ projectId: project.id }} variant="text" sx={{ textTransform: 'none', fontWeight: 600 }}>
-                      {project.name}
-                    </Button>
+                    <Link to="/projects/$projectId/environments" params={{ projectId: project.id }}
+                      style={{ textDecoration: 'none' }}>
+                      <Button variant="text" sx={{ textTransform: 'none', fontWeight: 600 }}>
+                        {project.name}
+                      </Button>
+                    </Link>
                   </TableCell>
                   <TableCell>{displayDate(project.createdAt)}</TableCell>
                   <TableCell align="right">
