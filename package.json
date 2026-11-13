@@ -1,0 +1,15 @@
+{
+  "name": "hashdox",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @hashdox/web dev",
+    "dev:api": "pnpm --filter @hashdox/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
