@@ -82,3 +82,49 @@ Branch names: `chore/<topic>`, `feat/<topic>`, `fix/<topic>`.
 Commits: `type(scope): summary` (Conventional Commits).
 
 Review each branch before merging. Do not deploy without explicit approval.
+
+## Authentication foundation (branch `feat/google-auth-foundation`)
+
+This branch introduces Better Auth, Google OAuth, and the four core Drizzle
+SQLite auth tables. Authentication is **not ready for production** until
+dependencies, schema compatibility, migrations, OAuth callbacks and cookies are
+tested. It currently admits **only the configured owner Google email**;
+invited users and project permissions are intentionally not implemented.
+
+### Local setup
+
+1. Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`.
+2. Set `OWNER_EMAIL` to the one Google identity authorized for initial access.
+3. Generate a random `BETTER_AUTH_SECRET` with at least 32 characters.
+4. Create Google OAuth web credentials and set `GOOGLE_CLIENT_ID` and
+   `GOOGLE_CLIENT_SECRET` (do not commit either). Authorize
+   `http://localhost:8787/api/auth/callback/google` as a redirect URI.
+5. Optionally copy `apps/web/.env.example` to `apps/web/.env`.
+6. Install dependencies and generate/review the D1 schema migration:
+
+```bash
+pnpm install
+pnpm --filter @hashdox/api db:generate
+pnpm --filter @hashdox/api db:migrate:local
+```
+
+7. Start both applications using `pnpm dev:api` and `pnpm dev:web`.
+
+The authentication handler is mounted at `/api/auth/*`. An authenticated
+`GET /api/me` returns only the owner profile; unauthenticated calls return 401.
+
+The Drizzle schema is manually authored as a starting point. **Compare it
+against the installed Better Auth CLI's generated schema before applying any
+migration**, and commit the generated migration and pnpm lockfile only after
+verification. Never automatically migrate a remote database.
+
+### Production decisions still needed
+
+- Use approved same-site web/API domains or thoroughly validate cross-site
+  cookie behavior and trusted origins before deployment.
+- Introduce invitation-only account enrollment and user roles in a separate
+  reviewed change; do not remove the owner allowlist as a shortcut.
+- Store Worker credentials via Wrangler secrets (never `VITE_` variables).
+- Add authentication tests, dependency validation and build checks before
+  deploying.
+- No Cloudflare resources were created or deployed by this branch.
