@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { count, desc, eq } from 'drizzle-orm';
 import { createDb } from '../db/client';
-import { projects } from '../db/schema';
+import { environments, projects } from '../db/schema';
+import { DEFAULT_ENVIRONMENTS } from '../environments/validation';
+import { environmentRoutes } from '../environments/routes';
 import type { AppBindings } from '../env';
 import { requireOwner } from '../security/require-owner';
 import { parseProjectPage, PROJECT_PAGE_SIZE, validateProjectInput } from './validation';
@@ -37,7 +39,14 @@ projectRoutes.post('/', async (c) => {
 
   const now = new Date();
   const project = { id: crypto.randomUUID(), name: input.name, createdAt: now, updatedAt: now };
-  await createDb(c.env).insert(projects).values(project);
+  const db = createDb(c.env);
+  await db.batch([
+    db.insert(projects).values(project),
+    db.insert(environments).values(DEFAULT_ENVIRONMENTS.map((entry) => ({
+      id: crypto.randomUUID(), projectId: project.id, name: entry.name,
+      slug: entry.slug, createdAt: now, updatedAt: now,
+    }))),
+  ]);
   return c.json(project, 201);
 });
 
@@ -59,3 +68,6 @@ projectRoutes.delete('/:id', async (c) => {
     .where(eq(projects.id, c.req.param('id'))).returning({ id: projects.id });
   return deleted ? c.body(null, 204) : c.json({ error: 'Project not found' }, 404);
 });
+
+// Child routes inherit the owner middleware and validate project association.
+projectRoutes.route('/:projectId/environments', environmentRoutes);
