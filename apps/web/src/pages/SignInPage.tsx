@@ -12,7 +12,7 @@ export function SignInPage() {
     try {
       const { error: authError } = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/',
+        callbackURL: window.location.origin + '/',
       });
       if (authError) setError('Google sign-in failed. Check your account access.');
     } catch {
