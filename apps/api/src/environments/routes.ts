@@ -15,6 +15,7 @@ async function projectExists(env: AppBindings, projectId: string) {
 
 environmentRoutes.get('/', async (c) => {
   const projectId = c.req.param('projectId');
+  if (!projectId) return c.json({ error: 'Project ID required' }, 400);
   if (!await projectExists(c.env, projectId)) return c.json({ error: 'Project not found' }, 404);
   const rows = await createDb(c.env).select().from(environments)
     .where(eq(environments.projectId, projectId))
@@ -24,6 +25,7 @@ environmentRoutes.get('/', async (c) => {
 
 environmentRoutes.post('/', async (c) => {
   const projectId = c.req.param('projectId');
+  if (!projectId) return c.json({ error: 'Project ID required' }, 400);
   if (!await projectExists(c.env, projectId)) return c.json({ error: 'Project not found' }, 404);
   const name = validateEnvironmentName(await c.req.json().catch(() => null));
   const slug = name === null ? null : environmentSlug(name);
@@ -45,6 +47,7 @@ environmentRoutes.post('/', async (c) => {
 
 environmentRoutes.patch('/:environmentId', async (c) => {
   const projectId = c.req.param('projectId');
+  if (!projectId) return c.json({ error: 'Project ID required' }, 400);
   if (!await projectExists(c.env, projectId)) return c.json({ error: 'Project not found' }, 404);
   const name = validateEnvironmentName(await c.req.json().catch(() => null));
   if (!name || !environmentSlug(name)) return c.json({ error: 'Use an alphanumeric environment name (1–60 characters); spaces allowed' }, 400);
@@ -57,6 +60,7 @@ environmentRoutes.patch('/:environmentId', async (c) => {
 
 environmentRoutes.delete('/:environmentId', async (c) => {
   const projectId = c.req.param('projectId');
+  if (!projectId) return c.json({ error: 'Project ID required' }, 400);
   if (!await projectExists(c.env, projectId)) return c.json({ error: 'Project not found' }, 404);
   const [deleted] = await createDb(c.env).delete(environments)
     .where(and(eq(environments.projectId, projectId), eq(environments.id, c.req.param('environmentId'))))
