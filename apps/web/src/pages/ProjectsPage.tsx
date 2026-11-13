@@ -6,6 +6,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { projectsApi, type Project } from '../lib/projects-api';
 import { authClient } from '../lib/auth-client';
 import { SignInPage } from './SignInPage';
@@ -120,7 +121,12 @@ function ProjectManager() {
                       onChange={(e) => setSelected((current) => e.target.checked
                         ? [...current, project.id] : current.filter((id) => id !== project.id))} />
                   </TableCell>
-                  <TableCell><Typography fontWeight={600}>{project.name}</Typography></TableCell>
+                  <TableCell>
+                    <Button component={Link} to="/projects/$projectId/environments"
+                      params={{ projectId: project.id }} variant="text" sx={{ textTransform: 'none', fontWeight: 600 }}>
+                      {project.name}
+                    </Button>
+                  </TableCell>
                   <TableCell>{displayDate(project.createdAt)}</TableCell>
                   <TableCell align="right">
                     <IconButton aria-label={`Actions for ${project.name}`} onClick={(e) => openActions(e, project)}>
