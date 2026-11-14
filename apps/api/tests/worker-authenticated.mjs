@@ -130,6 +130,13 @@ const changed = await request(prefix(dev) + `/secrets/${secretId}/reveal`, {
 status(changed, 200, 'reveal update');
 assert.deepEqual(changed.data, { value: 'private-value-2' });
 
+// Exercise more than one audit page, including many events in the same millisecond.
+for (let n = 0; n < 54; n++) {
+  status(await request(prefix(dev) + `/secrets/${secretId}/reveal`, {
+    method: 'POST', cookie: ownerCookie,
+  }), 200, 'reveal for audit pagination');
+}
+
 const moved = await request(prefix(dev) + `/secrets/${secretId}/folder`, {
   method: 'PATCH', cookie: ownerCookie, json: { folderId: null },
 });
@@ -146,12 +153,35 @@ status(await request(prefix(dev) + `/secrets/${secretId}/reveal`, {
   method: 'POST', cookie: ownerCookie,
 }), 404, 'deleted secret cannot reveal');
 
-const audit = await request(`/api/projects/${projectId}/audit`, { cookie: ownerCookie });
-status(audit, 200, 'owner audit feed');
-const actions = audit.data.data.map(event => event.action);
+const seen = new Set();
+const collected = [];
+let cursor = null;
+let pageCount = 0;
+do {
+  const suffix = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  const audit = await request(`/api/projects/${projectId}/audit${suffix}`, { cookie: ownerCookie });
+  status(audit, 200, 'owner paged audit feed');
+  assert.ok(audit.data.data.length <= 50);
+  for (const event of audit.data.data) {
+    assert.ok(!seen.has(event.id), 'audit cursor returned a duplicate record');
+    seen.add(event.id);
+    collected.push(event);
+  }
+  cursor = audit.data.nextCursor;
+  pageCount++;
+  assert.ok(pageCount < 10, 'audit pagination failed to terminate');
+} while (cursor);
+assert.ok(pageCount >= 2, 'expected multiple audit pages');
+const actions = collected.map(event => event.action);
 for (const action of ['secret.created', 'secret.updated', 'secret.moved', 'secret.deleted', 'secret.reveal_requested']) {
   assert.ok(actions.includes(action), `missing audit action ${action}`);
 }
-assert.ok(!JSON.stringify(audit.data).includes('private-value'));
+assert.ok(!JSON.stringify(collected).includes('private-value'));
+status(await request(`/api/projects/${projectId}/audit?cursor=broken!?`, {
+  cookie: ownerCookie,
+}), 400, 'malformed audit cursor denied');
+status(await request(`/api/projects/${projectId}/audit?before=1`, {
+  cookie: ownerCookie,
+}), 400, 'obsolete timestamp cursor rejected');
 
 console.log('Authenticated local Worker integration passed: session, scopes, encrypted CRUD, reveal, audit.');
