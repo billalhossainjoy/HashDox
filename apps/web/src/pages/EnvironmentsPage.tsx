@@ -57,7 +57,12 @@ function EnvironmentManager({ projectId }: { projectId: string }) {
       </Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={2} alignItems={{ sm: 'center' }}>
         <Typography variant="h4" component="h1">Environments</Typography>
-        <Button variant="contained" onClick={() => openEditor('new')}>Add environment</Button>
+        <Stack direction="row" gap={1}>
+          <Link to="/projects/$projectId/secrets" params={{ projectId }}>
+            <Button variant="outlined">Open secrets</Button>
+          </Link>
+          <Button variant="contained" onClick={() => openEditor('new')}>Add environment</Button>
+        </Stack>
       </Stack>
       {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
       <Paper variant="outlined">
