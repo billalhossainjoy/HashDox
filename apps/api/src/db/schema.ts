@@ -101,3 +101,19 @@ export const secrets = sqliteTable('secrets', {
   uniqueIndex('secrets_environment_key_unique').on(t.environmentId, t.key),
   index('secrets_project_environment_idx').on(t.projectId, t.environmentId),
 ]);
+
+/**
+ * Metadata-only record of successful mutations and reveal attempts.
+ * Deliberately no FK to secrets.id so deletion does not erase the audit trail.
+ */
+export const secretAuditEvents = sqliteTable('secret_audit_events', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  environmentId: text('environment_id').notNull(),
+  secretId: text('secret_id').notNull(),
+  action: text('action').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+}, table => [
+  index('secret_audit_project_created_idx').on(table.projectId, table.createdAt),
+  index('secret_audit_secret_idx').on(table.secretId),
+]);

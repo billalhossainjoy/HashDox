@@ -8,6 +8,7 @@ import { getProjectDataKey } from '../crypto/project-keys';
 import { requireOwner } from '../security/require-owner';
 import { validateSecretInput } from './validation';
 import { validateFolderTarget } from '../folders/validation';
+import { auditInsert } from '../audit/write';
 
 export const secretRoutes = new Hono<{ Bindings: AppBindings }>();
 
@@ -88,7 +89,10 @@ secretRoutes.post('/', async (c) => {
   const row = { id, projectId, environmentId, key: input.key, folderId, encryptedValue: sealed.ciphertext,
     nonce: sealed.nonce, createdAt: now, updatedAt: now };
   try {
-    await db.insert(secrets).values(row);
+    await db.batch([
+      db.insert(secrets).values(row),
+      auditInsert(db, { projectId, environmentId, secretId: id, action: 'secret.created' }),
+    ]);
   } catch {
     // Unique index also protects concurrent inserts, without logging plaintext.
     return c.json({ error: 'Unable to create secret, key may already exist' }, 409);
@@ -120,9 +124,13 @@ secretRoutes.patch('/:secretId', async (c) => {
     dek.fill(0);
   }
   try {
-    const [updated] = await db.update(secrets).set({
-      key: input.key, encryptedValue: sealed.ciphertext, nonce: sealed.nonce, updatedAt: new Date(),
-    }).where(condition).returning();
+    const [updates] = await db.batch([
+      db.update(secrets).set({
+        key: input.key, encryptedValue: sealed.ciphertext, nonce: sealed.nonce, updatedAt: new Date(),
+      }).where(condition).returning(),
+      auditInsert(db, { projectId, environmentId, secretId, action: 'secret.updated' }),
+    ]);
+    const [updated] = updates;
     return updated ? c.json(metadata(updated)) : c.json({ error: 'Secret not found' }, 404);
   } catch {
     return c.json({ error: 'Unable to update secret; key may already exist' }, 409);
@@ -141,6 +149,11 @@ secretRoutes.post('/:secretId/reveal', async (c) => {
     eq(secrets.environmentId, environmentId),
   )).limit(1);
   if (!row) return c.json({ error: 'Secret not found' }, 404);
+  // Record the authorized reveal attempt before any plaintext leaves the Worker.
+  // Fail closed if audit storage is unavailable.
+  await auditInsert(createDb(c.env), {
+    projectId, environmentId, secretId, action: 'secret.reveal_requested',
+  });
   const dek = await getProjectDataKey(c.env, projectId);
   try {
     const value = await decryptSecret(dek, { projectId, environmentId, secretId }, {
@@ -160,11 +173,16 @@ secretRoutes.delete('/:secretId', async (c) => {
   if (!projectId || !environmentId || !secretId ||
       !await scopedEnvironment(c.env, projectId, environmentId))
     return c.json({ error: 'Environment not found' }, 404);
-  const [deleted] = await createDb(c.env).delete(secrets).where(and(
-    eq(secrets.id, secretId), eq(secrets.projectId, projectId),
-    eq(secrets.environmentId, environmentId),
-  )).returning({ id: secrets.id });
-  return deleted ? c.body(null, 204) : c.json({ error: 'Secret not found' }, 404);
+  const db = createDb(c.env);
+  const condition = and(eq(secrets.id, secretId), eq(secrets.projectId, projectId),
+    eq(secrets.environmentId, environmentId));
+  const [existing] = await db.select({ id: secrets.id }).from(secrets).where(condition).limit(1);
+  if (!existing) return c.json({ error: 'Secret not found' }, 404);
+  const [results] = await db.batch([
+    db.delete(secrets).where(condition).returning({ id: secrets.id }),
+    auditInsert(db, { projectId, environmentId, secretId, action: 'secret.deleted' }),
+  ]);
+  return results.length > 0 ? c.body(null, 204) : c.json({ error: 'Secret not found' }, 404);
 });
 
 /** Move ciphertext without decrypting or changing its authenticated identity. */
@@ -184,8 +202,15 @@ secretRoutes.patch('/:secretId/folder', async (c) => {
         eq(secretFolders.environmentId, environmentId))).limit(1);
     if (!folder) return c.json({ error: 'Folder not found' }, 404);
   }
-  const [updated] = await db.update(secrets).set({ folderId: target, updatedAt: new Date() })
-    .where(and(eq(secrets.id, secretId), eq(secrets.projectId, projectId),
-      eq(secrets.environmentId, environmentId))).returning();
+  const condition = and(eq(secrets.id, secretId), eq(secrets.projectId, projectId),
+    eq(secrets.environmentId, environmentId));
+  const [existing] = await db.select({ id: secrets.id }).from(secrets).where(condition).limit(1);
+  if (!existing) return c.json({ error: 'Secret not found' }, 404);
+  const [results] = await db.batch([
+    db.update(secrets).set({ folderId: target, updatedAt: new Date() })
+      .where(condition).returning(),
+    auditInsert(db, { projectId, environmentId, secretId, action: 'secret.moved' }),
+  ]);
+  const [updated] = results;
   return updated ? c.json(metadata(updated)) : c.json({ error: 'Secret not found' }, 404);
 });
