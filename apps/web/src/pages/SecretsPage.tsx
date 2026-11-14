@@ -10,6 +10,8 @@ import { environmentsApi } from '../lib/environments-api';
 import { secretsApi, type SecretMetadata } from '../lib/secrets-api';
 import { foldersApi, type SecretFolder } from '../lib/folders-api';
 import { SignInPage } from './SignInPage';
+import { FolderNavigator } from '../components/FolderNavigator';
+import { getFolderDescendantIds, getFolderPath } from '../lib/folder-tree';
 
 const keyIsValid = (key: string) => /^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(key);
 const valueIsValid = (value: string) => new TextEncoder().encode(value).byteLength <= 16384;
@@ -174,7 +176,8 @@ function SecretsManager({ projectId }: { projectId: string }) {
   const folderQueryKey = ['folders', projectId, activeId] as const;
   const folders = useQuery({ queryKey: folderQueryKey, queryFn: () => foldersApi.list(projectId, activeId), enabled: Boolean(activeId) });
   const folderEntries = folders.data?.data ?? [];
-  const currentFolder = folderEntries.find(f => f.id === folderId) ?? null;
+  const folderPath = getFolderPath(folderEntries, folderId);
+  const currentFolder = folderPath?.at(-1) ?? null;
   const currentFolderId = currentFolder?.id ?? null;
   const listKey = ['secrets', projectId, activeId, currentFolderId] as const;
   const secrets = useQuery({
@@ -216,17 +219,6 @@ function SecretsManager({ projectId }: { projectId: string }) {
     },
     onError: (err: Error) => setError(err.message),
   });
-  const descendantIds = (target: SecretFolder) => {
-    const descendants = new Set<string>([target.id]);
-    let previous = -1;
-    while (previous !== descendants.size) {
-      previous = descendants.size;
-      for (const entry of folderEntries) {
-        if (entry.parentId && descendants.has(entry.parentId)) descendants.add(entry.id);
-      }
-    }
-    return descendants;
-  };
   const moveSecret = useMutation({
     mutationFn: () => secretsApi.move(projectId, activeId, moving!.id, moveTarget || null),
     onSuccess: async () => {
@@ -302,11 +294,10 @@ function SecretsManager({ projectId }: { projectId: string }) {
       {activeId && (
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap" sx={{ mb: 2 }}>
-            <Button size="small" variant={currentFolderId === null ? 'contained' : 'text'} onClick={() => setFolderId(null)}>Root</Button>
-            {currentFolder && <Typography color="text.secondary">/ {currentFolder.name}</Typography>}
+            <FolderNavigator folders={folderEntries} selectedId={folderId} onSelect={setFolderId}
+              isLoading={folders.isPending} />
             <Box sx={{ flexGrow: 1 }} />
             {currentFolder && <>
-              <Button size="small" onClick={() => setFolderId(currentFolder.parentId)}>Up</Button>
               <Button size="small" onClick={() => openFolderEditor(currentFolder)}>Rename</Button>
               <Button size="small" onClick={() => {
                 setFolderMoving(currentFolder);
@@ -317,13 +308,6 @@ function SecretsManager({ projectId }: { projectId: string }) {
             <Button size="small" variant="outlined" onClick={() => openFolderEditor('new')}>New folder</Button>
           </Stack>
           {folders.isError && <Alert severity="error">{folders.error.message}</Alert>}
-          <Stack direction="row" flexWrap="wrap" gap={1}>
-            {folderEntries.filter(f => f.parentId === currentFolderId).map(folder => (
-              <Button key={folder.id} variant="outlined" size="small" onClick={() => setFolderId(folder.id)}>
-                📁 {folder.name}
-              </Button>
-            ))}
-          </Stack>
         </Paper>
       )}
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
@@ -360,7 +344,7 @@ function SecretsManager({ projectId }: { projectId: string }) {
           <Typography sx={{ mb: 2 }}>Move {folderMoving?.name} to a different parent:</Typography>
           <Select fullWidth size="small" value={folderMoveTarget} onChange={event => setFolderMoveTarget(event.target.value)}>
             <MenuItem value="">Root</MenuItem>
-            {folderEntries.filter(entry => !folderMoving || !descendantIds(folderMoving).has(entry.id))
+            {folderEntries.filter(entry => !folderMoving || !getFolderDescendantIds(folderEntries, folderMoving.id).has(entry.id))
               .map(entry => <MenuItem key={entry.id} value={entry.id}>{entry.name}</MenuItem>)}
           </Select>
         </DialogContent>
