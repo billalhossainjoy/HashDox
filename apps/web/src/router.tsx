@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell';
 import { HomePage } from './pages/HomePage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { EnvironmentsPage } from './pages/EnvironmentsPage';
+import { SecretsPage } from './pages/SecretsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 const rootRoute = createRootRoute({
@@ -32,7 +33,13 @@ const environmentRoute = createRoute({
   component: EnvironmentsPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, projectsRoute, environmentRoute]);
+const secretsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/projects/$projectId/secrets',
+  component: SecretsPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, projectsRoute, environmentRoute, secretsRoute]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {
