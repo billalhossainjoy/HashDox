@@ -133,3 +133,28 @@ the server independently rejects invalid targets.
 before updating it. Concurrent reparenting operations require database-level
 serialized validation before this should be used with multiple writers.
 This feature does not move folders across projects or environments.
+
+## Secret operation audit trail
+
+A new `secret_audit_events` table stores only project, environment and
+secret **IDs**, a predefined action, a generated event ID and a timestamp.
+It never stores plaintext values, encryption keys, secret names, request
+bodies, headers or IP addresses.
+
+Actions: `secret.created`, `secret.updated`, `secret.moved`,
+`secret.deleted`, and `secret.reveal_requested`. Successful secret
+mutations and their audit inserts use the same D1 batch to avoid a
+successful write without an audit record. Reveal requests are recorded
+before decryption and response; failed decryptions may therefore appear
+as reveal attempts, not successful reveals. Missing/deleted secret IDs
+are not logged by these endpoints.
+
+Owner-only, no-store read endpoint:
+`GET /api/projects/:projectId/audit`. Returns up to 100 newest events;
+`?before=<timestamp_ms>` requests earlier timestamped entries.
+
+Audit records are metadata-only and not a substitute for independent,
+tamper-evident logs. Project deletion currently cascades its audit history.
+Retention, export, tamper resistance, rate limiting, complete security
+integration testing and incident reporting remain future work. This
+change is not deployed and does not apply remote migrations.
