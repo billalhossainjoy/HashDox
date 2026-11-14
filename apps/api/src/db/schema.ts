@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, index, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 // Core Better Auth SQLite models. Run Better Auth's schema checker after install.
 export const user = sqliteTable('user', {
  id: text('id').primaryKey(), name: text('name').notNull(),
@@ -75,7 +75,7 @@ export const secretFolders = sqliteTable('secret_folders', {
   id: text('id').primaryKey(),
   projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   environmentId: text('environment_id').notNull().references(() => environments.id, { onDelete: 'cascade' }),
-  parentId: text('parent_id'),
+  parentId: text('parent_id').references((): AnySQLiteColumn => secretFolders.id, { onDelete: 'restrict' }),
   parentKey: text('parent_key').notNull(),
   name: text('name').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
