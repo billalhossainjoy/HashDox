@@ -92,3 +92,26 @@ endpoint should be restricted further before introducing multi-user access.
 integration tests, audit events for secret reveal/mutations, rate limiting,
 a reviewed KEK rotation and recovery plan, and a full encryption security
 review are completed. This branch creates no live secrets or remote migrations.
+
+## Nested secret folders
+
+Secret folders belong to a single project and environment and may contain
+subfolders. Each folder has a scoped parent ID; unique indexes reject
+duplicate sibling names. On deletion, nonempty folders are rejected
+instead of cascading deletion of contained secrets or nested folders.
+
+- `GET /api/projects/:projectId/environments/:environmentId/folders` lists folder metadata
+- `POST .../folders` accepts `{"name":"Infrastructure","parentId":null}` (or a parent folder ID)
+- `PATCH .../folders/:folderId` renames a folder
+- `DELETE .../folders/:folderId` deletes **empty** folders
+- `GET .../secrets?folderId=:folderId` lists only a folder's secrets; without `folderId` lists root secrets
+- `POST .../secrets` optionally accepts `folderId`, placing a new secret into that folder
+- `PATCH .../secrets/:secretId/folder` accepts `{"folderId":null}` or a folder ID to move the ciphertext
+
+Secret ciphertext is bound to project/environment/secret ID, not folder ID,
+so moving a secret does not require decrypting or changing its crypto context.
+All folder and move operations validate the project and environment scope.
+This iteration does not support moving folders between parents.
+
+Remote migrations, authenticated Worker end-to-end tests, security audit and
+production deployment are still outstanding.
