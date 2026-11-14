@@ -68,6 +68,13 @@ secretRoutes.post('/', async (c) => {
   const [duplicate] = await db.select({ id: secrets.id }).from(secrets)
     .where(and(eq(secrets.environmentId, environmentId), eq(secrets.key, input.key))).limit(1);
   if (duplicate) return c.json({ error: 'Secret key already exists' }, 409);
+  const folderId = input.folderId ?? null;
+  if (folderId) {
+    const [folder] = await db.select({ id: secretFolders.id }).from(secretFolders)
+      .where(and(eq(secretFolders.id, folderId), eq(secretFolders.projectId, projectId),
+        eq(secretFolders.environmentId, environmentId))).limit(1);
+    if (!folder) return c.json({ error: 'Folder not found' }, 404);
+  }
 
   const id = crypto.randomUUID();
   const dek = await getProjectDataKey(c.env, projectId);
@@ -78,7 +85,7 @@ secretRoutes.post('/', async (c) => {
     dek.fill(0);
   }
   const now = new Date();
-  const row = { id, projectId, environmentId, key: input.key, encryptedValue: sealed.ciphertext,
+  const row = { id, projectId, environmentId, key: input.key, folderId, encryptedValue: sealed.ciphertext,
     nonce: sealed.nonce, createdAt: now, updatedAt: now };
   try {
     await db.insert(secrets).values(row);
