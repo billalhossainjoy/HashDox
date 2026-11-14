@@ -3,7 +3,7 @@
  * All keys and secret values must remain server-side.
  */
 const encoder = new TextEncoder();
-const decoder = new TextDecoder('utf-8', { fatal: true });
+const decoder = new TextDecoder('utf-8');
 
 export type Ciphertext = { nonce: string; ciphertext: string };
 export type SecretContext = { projectId: string; environmentId: string; secretId: string };
