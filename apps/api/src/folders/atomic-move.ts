@@ -12,7 +12,7 @@ export async function reparentFolderAtomically(
   environmentId: string,
   folderId: string,
   parentId: string | null,
-): Promise<{ id: string; parentId: string | null; parentKey: string } | null> {
+): Promise<{ id: string; parentId: string | null; parentKey: string; updatedAt: number } | null> {
   const result = await db.prepare(`
     WITH RECURSIVE ancestors(id, parent_id) AS (
       SELECT id, parent_id FROM secret_folders
@@ -32,8 +32,8 @@ export async function reparentFolderAtomically(
         WHERE target.id = ?1 AND target.project_id = ?2 AND target.environment_id = ?3
       ))
       AND NOT EXISTS (SELECT 1 FROM ancestors WHERE id = ?5)
-    RETURNING id, parent_id AS parentId, parent_key AS parentKey
+    RETURNING id, parent_id AS parentId, parent_key AS parentKey, updated_at AS updatedAt
   `).bind(parentId, projectId, environmentId, Date.now(), folderId)
-    .first<{ id: string; parentId: string | null; parentKey: string }>();
+    .first<{ id: string; parentId: string | null; parentKey: string; updatedAt: number }>();
   return result ?? null;
 }
