@@ -9,4 +9,6 @@ export type AppBindings = {
   OWNER_EMAIL: string;
   /** Base64 of 32 cryptographically random bytes, stored only in Worker Secrets. */
   HASHDOX_MASTER_KEY_B64?: string;
+  /** Test-only alternate entrypoint guard; never set in deployed Workers. */
+  TEST_FIXTURE_MODE?: string;
 };
