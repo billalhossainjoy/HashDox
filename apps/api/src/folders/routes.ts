@@ -5,7 +5,7 @@ import { environments, secretFolders, secrets } from '../db/schema';
 import type { AppBindings } from '../env';
 import { requireOwner } from '../security/require-owner';
 import { validateFolderName, validateFolderTarget } from './validation';
-import { canMoveFolder } from './hierarchy';
+import { reparentFolderAtomically } from './atomic-move';
 
 export const folderRoutes = new Hono<{ Bindings: AppBindings }>();
 folderRoutes.use('*', requireOwner);
@@ -127,23 +127,20 @@ folderRoutes.patch('/:folderId/parent', async (c) => {
   if (parentId === undefined) return c.json({ error: 'Invalid parent folder' }, 400);
 
   const db = createDb(c.env);
-  const all = await db.select().from(secretFolders)
-    .where(scope(projectId, environmentId)).limit(1000);
-  const current = all.find(folder => folder.id === folderId);
+  const [current] = await db.select().from(secretFolders)
+    .where(and(scope(projectId, environmentId), eq(secretFolders.id, folderId))).limit(1);
   if (!current) return c.json({ error: 'Folder not found' }, 404);
-  if (!canMoveFolder(all, folderId, parentId)) {
-    return c.json({ error: 'Cannot move a folder into itself, its descendant, or another environment' }, 409);
-  }
-  if (parentId === current.parentId) return c.json(current);
-  // Database unique index enforces distinct names among new siblings.
+
   try {
-    const [updated] = await db.update(secretFolders).set({
-      parentId,
-      parentKey: parentId ?? '',
-      updatedAt: new Date(),
-    }).where(and(scope(projectId, environmentId), eq(secretFolders.id, folderId))).returning();
-    return updated ? c.json(updated) : c.json({ error: 'Folder not found' }, 404);
+    const moved = await reparentFolderAtomically(
+      c.env.DB, projectId, environmentId, folderId, parentId,
+    );
+    if (!moved) return c.json({
+      error: 'Invalid destination: folder missing, different environment, or circular hierarchy',
+    }, 409);
+    return c.json({ ...current, parentId: moved.parentId, parentKey: moved.parentKey,
+      updatedAt: new Date() });
   } catch {
-    return c.json({ error: 'Folder move conflicts with an existing sibling or folder constraint' }, 409);
+    return c.json({ error: 'Folder move conflicts with a sibling name or database constraint' }, 409);
   }
 });
