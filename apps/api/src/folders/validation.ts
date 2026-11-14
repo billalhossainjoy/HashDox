@@ -4,6 +4,7 @@ export function validateFolderName(input: unknown): string | null {
   if (keys.length !== 1 || keys[0] !== 'name') return null;
   const name = (input as { name?: unknown }).name;
   if (typeof name !== 'string') return null;
+  if (/[\\/\u0000-\u001f\u007f]/.test(name)) return null;
   const cleaned = name.trim();
   return cleaned.length >= 1 && cleaned.length <= 60 && !/[\\/\u0000-\u001f\u007f]/.test(cleaned)
     ? cleaned : null;
