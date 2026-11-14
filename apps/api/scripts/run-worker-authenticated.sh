@@ -13,6 +13,7 @@ trap cleanup EXIT
 
 # Entirely artificial local-only test KEK; never use for any real user data.
 TEST_KEK="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64'))")"
+TEST_KEK_V2="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64'))")"
 pnpm exec wrangler dev src/integration-entry.ts --local --ip 127.0.0.1 --port 8787 \
   --var TEST_FIXTURE_MODE:hashdox-ci-auth-fixture \
   --var OWNER_EMAIL:owner@example.test \
@@ -20,7 +21,8 @@ pnpm exec wrangler dev src/integration-entry.ts --local --ip 127.0.0.1 --port 87
   --var BETTER_AUTH_SECRET:1234567890abcdefghijklmnopqrstuvwxyz123456 \
   --var GOOGLE_CLIENT_ID:placeholder-test-client \
   --var GOOGLE_CLIENT_SECRET:placeholder-test-secret \
-  --var "HASHDOX_MASTER_KEY_B64:$TEST_KEK" >"$LOG_FILE" 2>&1 &
+  --var "HASHDOX_MASTER_KEY_B64:$TEST_KEK" \
+  --var "HASHDOX_MASTER_KEY_V2_B64:$TEST_KEK_V2" >"$LOG_FILE" 2>&1 &
 WORKER_PID=$!
 
 READY=0
