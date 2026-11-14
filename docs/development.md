@@ -127,3 +127,24 @@ removed. The frontend confirms deletions.
 
 This stage stores only environment metadata, **not** secrets, access rules,
 or encryption keys. No remote D1 migrations are performed automatically.
+
+## Local Worker authorization smoke tests
+
+After local D1 migration, run:
+
+```bash
+bash apps/api/scripts/run-worker-smoke.sh
+```
+
+This starts Wrangler **locally** with placeholder, nonfunctional OAuth
+configuration and checks real HTTP routing in the Workers runtime. It verifies
+the health endpoint, rejects anonymous/fake-cookie reads and writes against
+projects, environments, folders, secrets, reveal and audit routes, and checks
+CORS allow/disallow behavior. It is wired into CI after isolated local D1
+migration setup. No OAuth network connection is attempted.
+
+These tests **do not establish** that a real owner session can create,
+reveal or modify secrets; they do not test Google OAuth, legitimate session
+cookies, production Worker security, or remote D1. Those require separate
+authorized authenticated integration testing before deployment. The test
+credentials are not valid production credentials.
