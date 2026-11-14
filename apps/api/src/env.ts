@@ -7,4 +7,6 @@ export type AppBindings = {
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   OWNER_EMAIL: string;
+  /** Base64 of 32 cryptographically random bytes, stored only in Worker Secrets. */
+  HASHDOX_MASTER_KEY_B64?: string;
 };

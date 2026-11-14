@@ -57,3 +57,15 @@ export const environments = sqliteTable('environments', {
   uniqueIndex('environments_project_slug_unique').on(table.projectId, table.slug),
   index('environments_project_id_idx').on(table.projectId),
 ]);
+
+/**
+ * Wrapped per-project encryption keys. Only encrypted DEKs are persisted.
+ * A single active KEK version is supported in this foundation.
+ */
+export const projectDataKeys = sqliteTable('project_data_keys', {
+  projectId: text('project_id').primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
+  keyVersion: integer('key_version').notNull().default(1),
+  wrappedNonce: text('wrapped_nonce').notNull(),
+  wrappedCiphertext: text('wrapped_ciphertext').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});
