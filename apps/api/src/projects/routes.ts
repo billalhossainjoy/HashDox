@@ -4,6 +4,7 @@ import { createDb } from '../db/client';
 import { environments, projects } from '../db/schema';
 import { DEFAULT_ENVIRONMENTS } from '../environments/validation';
 import { environmentRoutes } from '../environments/routes';
+import { auditRoutes } from '../audit/routes';
 import type { AppBindings } from '../env';
 import { requireOwner } from '../security/require-owner';
 import { parseProjectPage, PROJECT_PAGE_SIZE, validateProjectInput } from './validation';
@@ -71,3 +72,6 @@ projectRoutes.delete('/:id', async (c) => {
 
 // Child routes inherit the owner middleware and validate project association.
 projectRoutes.route('/:projectId/environments', environmentRoutes);
+
+// Audit feed is owner-only and contains identifiers/actions, never values.
+projectRoutes.route('/:projectId/audit', auditRoutes);
