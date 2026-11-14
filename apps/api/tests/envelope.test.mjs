@@ -43,3 +43,21 @@ test('altered ciphertext or nonce fails authentication', async () => {
   }));
   await assert.rejects(() => decryptSecret(dek, ctx, { ...value, nonce: 'invalid' }));
 });
+
+test('KEK rotation rewraps a project DEK without changing secret ciphertext', async () => {
+  const oldMaster = generateDataKey();
+  const newMaster = generateDataKey();
+  const dek = generateDataKey();
+  const secret = await encryptSecret(dek, ctx, 'previously encrypted data');
+  const original = await wrapDataKey(oldMaster, ctx.projectId, dek, 1);
+  const recovered = await unwrapDataKey(oldMaster, ctx.projectId, original, 1);
+  const rotated = await wrapDataKey(newMaster, ctx.projectId, recovered, 2);
+  const newDek = await unwrapDataKey(newMaster, ctx.projectId, rotated, 2);
+  assert.deepEqual(newDek, dek);
+  assert.equal(await decryptSecret(newDek, ctx, secret), 'previously encrypted data');
+  await assert.rejects(() => unwrapDataKey(oldMaster, ctx.projectId, rotated, 2));
+  await assert.rejects(() => unwrapDataKey(newMaster, ctx.projectId, original, 1));
+  await assert.rejects(() => unwrapDataKey(newMaster, ctx.projectId, rotated, 1));
+  recovered.fill(0);
+  newDek.fill(0);
+});
