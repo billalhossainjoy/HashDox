@@ -202,3 +202,40 @@ Audit events currently cascade when a **project** is deleted. This is not
 tamper-evident audit storage. Real production retention requires a documented
 legal/business retention decision, independent backups, export/restore testing,
 and access controls before any remote deletion is approved.
+
+## Staged master key rotation foundation (v1 → v2)
+
+Worker encryption now supports versioned wrapped project DEKs. Version **1**
+continues to use `HASHDOX_MASTER_KEY_B64`; version **2** reads
+`HASHDOX_MASTER_KEY_V2_B64`. Keep both bindings available during a migration.
+`HASHDOX_ACTIVE_KEK_VERSION` controls the version used for **new** projects
+(default `1`); old projects are always decrypted with their stored version.
+
+The internal `rewrapProjectDataKey(env, projectId)` helper decrypts only
+the wrapped project DEK, encrypts it under v2 with a new AES-GCM nonce and
+version-authenticated context, verifies the rewrap, and updates the D1 record
+via compare-and-swap. It does not decrypt or update individual secret values.
+The helper is **not exposed by the production HTTP application**. A separate
+local CI-only Worker entrypoint exercises this flow with disposable random
+master keys and checks that existing secrets can still be revealed.
+
+### Recovery and rollout safeguards
+
+1. Generate and store an independent random v2 KEK in the Worker secret store;
+   retain v1 securely, separately, until all records are migrated and
+   recovery tests have succeeded.
+2. Back up the D1 database and versioned key material in separately controlled,
+   access-restricted locations **before** any rotation.
+3. Use a reviewed, authorized operator-only migration workflow to rewrap and
+   verify **every** project key. That bulk workflow does not exist yet; do not
+   rotate production keys until it is implemented and tested.
+4. Verify all projects use v2 before selecting v2 for new projects; verify
+   backup restoration and a complete authenticated read/write flow.
+5. Do not delete v1 KEK solely because an individual project reports successful
+   rewrap. Old backups and in-flight Worker instances may still require it.
+
+If a KEK is lost without an independent usable backup, affected secrets
+are unrecoverable. This feature does **not** provide escrow, a disaster
+recovery service, online key-rotation API or automatic bulk migration.
+Never transmit either master key through GitHub, HTTP routes, frontend code,
+logs or chat messages. No remote credentials or migrations are changed.
