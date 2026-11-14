@@ -34,9 +34,9 @@ export const secretsApi = {
   list: (projectId: string, environmentId: string, folderId: string | null) =>
     request<{ data: SecretMetadata[] }>(projectId, environmentId,
       folderId ? `?folderId=${encodeURIComponent(folderId)}` : ''),
-  create: (projectId: string, environmentId: string, key: string, value: string) =>
+  create: (projectId: string, environmentId: string, key: string, value: string, folderId: string | null) =>
     request<SecretMetadata>(projectId, environmentId, '', {
-      method: 'POST', body: JSON.stringify({ key, value }),
+      method: 'POST', body: JSON.stringify({ key, value, folderId }),
     }),
   save: (projectId: string, environmentId: string, id: string, key: string, value: string) =>
     request<SecretMetadata>(projectId, environmentId, `/${encodeURIComponent(id)}`, {
