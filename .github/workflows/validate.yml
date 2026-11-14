@@ -49,6 +49,8 @@ jobs:
         run: pnpm --filter @hashdox/api db:migrate:local
       - name: Local Worker authorization and CORS smoke tests
         run: bash apps/api/scripts/run-worker-smoke.sh
+      - name: Authenticated local Worker integration tests
+        run: bash apps/api/scripts/run-worker-authenticated.sh
       - name: Upload migration SQL for review
         if: always()
         uses: actions/upload-artifact@v4
