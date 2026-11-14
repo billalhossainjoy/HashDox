@@ -69,3 +69,18 @@ export const projectDataKeys = sqliteTable('project_data_keys', {
   wrappedCiphertext: text('wrapped_ciphertext').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
+
+/** Ciphertext only. Secret values are never stored as plaintext in D1. */
+export const secrets = sqliteTable('secrets', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  environmentId: text('environment_id').notNull().references(() => environments.id, { onDelete: 'cascade' }),
+  key: text('key').notNull(),
+  encryptedValue: text('encrypted_value').notNull(),
+  nonce: text('nonce').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, t => [
+  uniqueIndex('secrets_environment_key_unique').on(t.environmentId, t.key),
+  index('secrets_project_environment_idx').on(t.projectId, t.environmentId),
+]);
