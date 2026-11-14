@@ -148,3 +148,23 @@ reveal or modify secrets; they do not test Google OAuth, legitimate session
 cookies, production Worker security, or remote D1. Those require separate
 authorized authenticated integration testing before deployment. The test
 credentials are not valid production credentials.
+
+## Authenticated local Worker integration checks
+
+Run `bash apps/api/scripts/run-worker-authenticated.sh` after generating
+and applying the local D1 schema. A separate, test-only Wrangler entrypoint
+(`src/integration-entry.ts`) enables temporary email/password signup for
+two *fabricated* local identities; production `src/index.ts` retains
+Google-only authentication and never registers the fixture route.
+
+The integration test sends real Better Auth session cookies through the Hono
+authorization middleware, verifies the owner succeeds and a different signed
+user is rejected, then exercises encrypted secret create, list, reveal,
+update, move and delete, environment isolation, and metadata-only audit
+events. Test keys are generated for the isolated Worker process and must
+never be deployed.
+
+This is an **authenticated local D1 and Workers integration check**, not
+an end-to-end Google OAuth browser test. It does not validate production
+cookie domain settings, deployed Cloudflare configuration, recovery or
+rotation, concurrent writes, or tamper-evident audit storage.
