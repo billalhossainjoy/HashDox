@@ -139,7 +139,7 @@ folderRoutes.patch('/:folderId/parent', async (c) => {
       error: 'Invalid destination: folder missing, different environment, or circular hierarchy',
     }, 409);
     return c.json({ ...current, parentId: moved.parentId, parentKey: moved.parentKey,
-      updatedAt: new Date() });
+      updatedAt: new Date(moved.updatedAt) });
   } catch {
     return c.json({ error: 'Folder move conflicts with a sibling name or database constraint' }, 409);
   }
