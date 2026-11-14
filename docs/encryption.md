@@ -158,3 +158,19 @@ tamper-evident logs. Project deletion currently cascades its audit history.
 Retention, export, tamper resistance, rate limiting, complete security
 integration testing and incident reporting remain future work. This
 change is not deployed and does not apply remote migrations.
+
+## Atomic folder reparenting
+
+Folder moves now validate destination ancestry **within the same SQLite
+UPDATE statement** that changes the parent. A recursive CTE checks that
+the destination is in the same project/environment and does not lead back
+to the folder being moved. SQLite serializes writes to prevent two
+simultaneous opposing moves from both applying stale ancestry decisions.
+The sibling-name unique index and parent foreign key remain enforced.
+
+Authenticated local Worker integration checks send opposing moves in
+parallel and verify that precisely one succeeds and no parent cycle
+remains. This protects the reparent endpoint; other writers must also
+use these invariants. Future work should add database-level checks or
+triggers to enforce scope for **all** folder/secret mutations, including
+direct SQL/migrations and older preexisting data.
