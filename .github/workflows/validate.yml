@@ -47,6 +47,8 @@ jobs:
           test -n "$(find apps/api/drizzle -maxdepth 1 -name '*.sql' -print -quit)"
       - name: Apply migrations to isolated local D1
         run: pnpm --filter @hashdox/api db:migrate:local
+      - name: Local Worker authorization and CORS smoke tests
+        run: bash apps/api/scripts/run-worker-smoke.sh
       - name: Upload migration SQL for review
         if: always()
         uses: actions/upload-artifact@v4
