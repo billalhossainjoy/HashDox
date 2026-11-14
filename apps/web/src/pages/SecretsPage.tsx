@@ -155,6 +155,8 @@ function SecretsManager({ projectId }: { projectId: string }) {
   const [folderEditing, setFolderEditing] = useState<SecretFolder | 'new' | null>(null);
   const [folderName, setFolderName] = useState('');
   const [folderDeleting, setFolderDeleting] = useState<SecretFolder | null>(null);
+  const [folderMoving, setFolderMoving] = useState<SecretFolder | null>(null);
+  const [folderMoveTarget, setFolderMoveTarget] = useState('');
   const [moving, setMoving] = useState<SecretMetadata | null>(null);
   const [moveTarget, setMoveTarget] = useState<string>('');
   const [adding, setAdding] = useState(false);
@@ -204,6 +206,27 @@ function SecretsManager({ projectId }: { projectId: string }) {
     },
     onError: (err: Error) => setError(err.message),
   });
+  const moveFolder = useMutation({
+    mutationFn: () => foldersApi.move(projectId, activeId, folderMoving!.id, folderMoveTarget || null),
+    onSuccess: async () => {
+      setFolderMoving(null);
+      setFolderId(null);
+      setError('');
+      await refreshFolders();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+  const descendantIds = (target: SecretFolder) => {
+    const descendants = new Set<string>([target.id]);
+    let previous = -1;
+    while (previous !== descendants.size) {
+      previous = descendants.size;
+      for (const entry of folderEntries) {
+        if (entry.parentId && descendants.has(entry.parentId)) descendants.add(entry.id);
+      }
+    }
+    return descendants;
+  };
   const moveSecret = useMutation({
     mutationFn: () => secretsApi.move(projectId, activeId, moving!.id, moveTarget || null),
     onSuccess: async () => {
@@ -266,6 +289,7 @@ function SecretsManager({ projectId }: { projectId: string }) {
               setFolderId(null);
               setMoving(null);
               setFolderEditing(null);
+              setFolderMoving(null);
               setDeleting(null);
               closeCreate();
               setError('');
@@ -284,6 +308,10 @@ function SecretsManager({ projectId }: { projectId: string }) {
             {currentFolder && <>
               <Button size="small" onClick={() => setFolderId(currentFolder.parentId)}>Up</Button>
               <Button size="small" onClick={() => openFolderEditor(currentFolder)}>Rename</Button>
+              <Button size="small" onClick={() => {
+                setFolderMoving(currentFolder);
+                setFolderMoveTarget(currentFolder.parentId ?? '');
+              }}>Move folder</Button>
               <Button size="small" color="error" onClick={() => setFolderDeleting(currentFolder)}>Delete</Button>
             </>}
             <Button size="small" variant="outlined" onClick={() => openFolderEditor('new')}>New folder</Button>
@@ -325,6 +353,21 @@ function SecretsManager({ projectId }: { projectId: string }) {
             <Button type="submit" variant="contained" disabled={!folderName.trim() || saveFolder.isPending}>Save</Button>
           </DialogActions>
         </Box>
+      </Dialog>
+      <Dialog open={folderMoving !== null} onClose={moveFolder.isPending ? undefined : () => setFolderMoving(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Move folder</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>Move {folderMoving?.name} to a different parent:</Typography>
+          <Select fullWidth size="small" value={folderMoveTarget} onChange={event => setFolderMoveTarget(event.target.value)}>
+            <MenuItem value="">Root</MenuItem>
+            {folderEntries.filter(entry => !folderMoving || !descendantIds(folderMoving).has(entry.id))
+              .map(entry => <MenuItem key={entry.id} value={entry.id}>{entry.name}</MenuItem>)}
+          </Select>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFolderMoving(null)} disabled={moveFolder.isPending}>Cancel</Button>
+          <Button variant="contained" onClick={() => moveFolder.mutate()} disabled={moveFolder.isPending}>Move</Button>
+        </DialogActions>
       </Dialog>
       <Dialog open={folderDeleting !== null} onClose={() => setFolderDeleting(null)}>
         <DialogTitle>Delete folder?</DialogTitle>

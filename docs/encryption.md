@@ -115,3 +115,21 @@ This iteration does not support moving folders between parents.
 
 Remote migrations, authenticated Worker end-to-end tests, security audit and
 production deployment are still outstanding.
+
+## Reorganizing nested folders
+
+`PATCH /api/projects/:projectId/environments/:environmentId/folders/:folderId/parent`
+accepts `{"folderId":null}` to move a folder to root, or a folder ID to
+nest it beneath another folder. The API validates the owner, project and
+environment, rejects moves into the folder itself or any of its descendants,
+and preserves folder IDs and their existing secrets. Unique sibling-name
+constraints remain enforced.
+
+The Secrets screen includes a **Move folder** dialog. It filters out
+the selected folder and its descendants as possible destinations, while
+the server independently rejects invalid targets.
+
+**Concurrency limitation:** the initial cycle prevention checks the hierarchy
+before updating it. Concurrent reparenting operations require database-level
+serialized validation before this should be used with multiple writers.
+This feature does not move folders across projects or environments.

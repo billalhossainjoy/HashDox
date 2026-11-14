@@ -4,7 +4,8 @@ import { createDb } from '../db/client';
 import { environments, secretFolders, secrets } from '../db/schema';
 import type { AppBindings } from '../env';
 import { requireOwner } from '../security/require-owner';
-import { validateFolderName } from './validation';
+import { validateFolderName, validateFolderTarget } from './validation';
+import { canMoveFolder } from './hierarchy';
 
 export const folderRoutes = new Hono<{ Bindings: AppBindings }>();
 folderRoutes.use('*', requireOwner);
@@ -107,5 +108,42 @@ folderRoutes.delete('/:folderId', async (c) => {
   } catch {
     // FK RESTRICT also protects concurrent insertions.
     return c.json({ error: 'Folder is not empty' }, 409);
+  }
+});
+
+
+/**
+ * Reparent a folder within the same project/environment. Refuses self and
+ * descendant targets, duplicate sibling names and invalid foreign parents.
+ */
+folderRoutes.patch('/:folderId/parent', async (c) => {
+  const projectId = c.req.param('projectId');
+  const environmentId = c.req.param('environmentId');
+  const folderId = c.req.param('folderId');
+  if (!projectId || !environmentId || !folderId) {
+    return c.json({ error: 'Missing folder scope' }, 400);
+  }
+  const parentId = validateFolderTarget(await c.req.json().catch(() => null));
+  if (parentId === undefined) return c.json({ error: 'Invalid parent folder' }, 400);
+
+  const db = createDb(c.env);
+  const all = await db.select().from(secretFolders)
+    .where(scope(projectId, environmentId)).limit(1000);
+  const current = all.find(folder => folder.id === folderId);
+  if (!current) return c.json({ error: 'Folder not found' }, 404);
+  if (!canMoveFolder(all, folderId, parentId)) {
+    return c.json({ error: 'Cannot move a folder into itself, its descendant, or another environment' }, 409);
+  }
+  if (parentId === current.parentId) return c.json(current);
+  // Database unique index enforces distinct names among new siblings.
+  try {
+    const [updated] = await db.update(secretFolders).set({
+      parentId,
+      parentKey: parentId ?? '',
+      updatedAt: new Date(),
+    }).where(and(scope(projectId, environmentId), eq(secretFolders.id, folderId))).returning();
+    return updated ? c.json(updated) : c.json({ error: 'Folder not found' }, 404);
+  } catch {
+    return c.json({ error: 'Folder move conflicts with an existing sibling or folder constraint' }, 409);
   }
 });
