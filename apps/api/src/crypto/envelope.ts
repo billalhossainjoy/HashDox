@@ -58,7 +58,7 @@ async function open(key: Uint8Array, payload: Ciphertext, aad: string): Promise<
 }
 
 function keyContext(projectId: string, version: number): string {
-  if (!projectId || version !== 1) throw new Error('Unsupported key context');
+  if (!projectId || (version !== 1 && version !== 2)) throw new Error('Unsupported key context');
   return `hashdox:dek:v1:${projectId}:kek:${version}`;
 }
 
@@ -69,16 +69,16 @@ function secretContext(ctx: SecretContext): string {
 }
 
 export async function wrapDataKey(
-  masterKey: Uint8Array, projectId: string, dataKey: Uint8Array,
+  masterKey: Uint8Array, projectId: string, dataKey: Uint8Array, version: 1 | 2 = 1,
 ): Promise<Ciphertext> {
   if (dataKey.length !== 32) throw new Error('Invalid project data key');
-  return seal(masterKey, dataKey, keyContext(projectId, 1));
+  return seal(masterKey, dataKey, keyContext(projectId, version));
 }
 
 export async function unwrapDataKey(
-  masterKey: Uint8Array, projectId: string, wrapped: Ciphertext,
+  masterKey: Uint8Array, projectId: string, wrapped: Ciphertext, version: 1 | 2 = 1,
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const result = await open(masterKey, wrapped, keyContext(projectId, 1));
+  const result = await open(masterKey, wrapped, keyContext(projectId, version));
   if (result.length !== 32) throw new Error('Invalid unwrapped project key');
   return result;
 }
