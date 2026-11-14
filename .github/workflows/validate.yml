@@ -35,6 +35,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Authorization policy tests
         run: pnpm --filter @hashdox/api test
+      - name: Frontend folder navigation tests
+        run: pnpm --filter @hashdox/web test
       - name: Typecheck
         run: pnpm typecheck
       - name: Build (no deployment)
