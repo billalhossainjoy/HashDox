@@ -9,6 +9,7 @@ import app from './index';
 import { createDb } from './db/client';
 import * as schema from './db/schema';
 import type { AppBindings } from './env';
+import { rewrapProjectDataKey } from './crypto/project-keys';
 
 const TEST_MODE = 'hashdox-ci-auth-fixture';
 
@@ -30,6 +31,14 @@ app.post('/__test__/signup', async (c) => {
     headers: new Headers({ origin: 'http://127.0.0.1:8787' }),
     asResponse: true,
   });
+});
+
+// This route exists only in integration-entry.ts, never production index.ts.
+app.post('/__test__/rotate/:projectId', async c => {
+  if (c.env.TEST_FIXTURE_MODE !== TEST_MODE) return c.json({ error: 'Not found' }, 404);
+  // No external access: the integration fixture only binds to loopback in CI.
+  const result = await rewrapProjectDataKey(c.env, c.req.param('projectId'));
+  return c.json({ result });
 });
 
 export default app;

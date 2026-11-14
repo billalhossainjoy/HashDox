@@ -111,6 +111,20 @@ status(reveal, 200, 'reveal original');
 assert.deepEqual(reveal.data, { value: 'private-value-1' });
 assert.equal(reveal.response.headers.get('cache-control'), 'no-store');
 
+// Rewrapping leaves every existing secret ciphertext unchanged and readable.
+const rewrap = await request(`/__test__/rotate/${projectId}`, { method: 'POST' });
+status(rewrap, 200, 'rotate project KEK from v1 to v2');
+assert.deepEqual(rewrap.data, { result: 'rotated' });
+const again = await request(`/__test__/rotate/${projectId}`, { method: 'POST' });
+status(again, 200, 'idempotent rotation');
+assert.deepEqual(again.data, { result: 'already-rotated' });
+const afterRewrap = await request(prefix(dev) + `/secrets/${secretId}/reveal`, {
+  method: 'POST', cookie: ownerCookie,
+});
+status(afterRewrap, 200, 'reveal existing secret after KEK rotation');
+assert.deepEqual(afterRewrap.data, { value: 'private-value-1' });
+
+
 status(await request(prefix(prod) + `/secrets/${secretId}/reveal`, {
   method: 'POST', cookie: ownerCookie,
 }), 404, 'cross-environment reveal denied');
