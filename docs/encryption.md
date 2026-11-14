@@ -56,3 +56,39 @@ Passing unit tests does not constitute an independent security audit.
 
 Review and apply the new local D1 migration before running integration tests.
 **Never apply remote migrations or deploy without explicit approval.**
+
+## Environment-scoped encrypted secrets API
+
+This stage adds an owner-only API for encrypted values in an existing project
+environment. The backend verifies the exact project/environment association
+before any key retrieval or secret operation.
+
+| Method | Endpoint under `/api/projects/:projectId/environments/:environmentId/secrets` |
+| --- | --- |
+| GET | `/` — list metadata only, maximum 500 (no plaintext or ciphertext) |
+| POST | `/` — create a secret with `{"key":"DATABASE_URL","value":"..."}` |
+| PATCH | `/:secretId` — replace key/value with `{"key":"DATABASE_URL","value":"..."}` |
+| POST | `/:secretId/reveal` — explicitly return plaintext value |
+| DELETE | `/:secretId` — delete ciphertext |
+
+Values must be strings with no more than 16 KiB of UTF-8 bytes (including
+empty strings). Keys use env-style letters, digits and underscores, beginning
+with a letter or underscore (maximum 128 characters). Keys are unique in each
+environment. Payloads with unexpected fields are rejected.
+
+The `secrets` table stores ciphertext, a random nonce, a project ID,
+environment ID and a key name — never a plaintext secret value. Unique indexes
+prevent duplicate secret names. The authenticated data binds each ciphertext to
+its precise project, environment and secret record ID; moving the ciphertext
+to another record will fail AES-GCM verification.
+
+Every secrets route checks owner authorization. Responses include
+`Cache-Control: no-store`. Reveal is a separate POST and is **never** part
+of a list response. Clients must not put revealed values into persistent
+TanStack Query caches, browser storage, analytics, or logs. The reveal
+endpoint should be restricted further before introducing multi-user access.
+
+**Deployment remains blocked** until real Google OAuth and Workers
+integration tests, audit events for secret reveal/mutations, rate limiting,
+a reviewed KEK rotation and recovery plan, and a full encryption security
+review are completed. This branch creates no live secrets or remote migrations.
