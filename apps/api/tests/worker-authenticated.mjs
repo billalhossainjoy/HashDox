@@ -59,6 +59,38 @@ const createFolder = await request(prefix(dev) + '/folders', {
 status(createFolder, 201, 'create folder');
 const folderId = createFolder.data.id;
 
+// Competing parent updates must not create a cycle, even with stale callers.
+const secondFolder = await request(prefix(dev) + '/folders', {
+  method: 'POST', cookie: ownerCookie, json: { name: 'Operations', parentId: null },
+});
+status(secondFolder, 201, 'create second folder');
+const siblingId = secondFolder.data.id;
+const moveFolder = (id, parentId, env = dev) => request(prefix(env) + `/folders/${id}/parent`, {
+  method: 'PATCH', cookie: ownerCookie, json: { folderId: parentId },
+});
+status(await moveFolder(folderId, folderId), 409, 'self move denied');
+status(await moveFolder(folderId, 'not-a-folder'), 409, 'missing parent denied');
+status(await moveFolder(folderId, siblingId, prod), 404, 'cross-environment move denied');
+
+const [r1, r2] = await Promise.all([
+  moveFolder(folderId, siblingId),
+  moveFolder(siblingId, folderId),
+]);
+const outcomes = [r1.response.status, r2.response.status].sort();
+assert.deepEqual(outcomes, [200, 409], 'opposing concurrent moves must allow only one');
+const foldersAfter = await request(prefix(dev) + '/folders', { cookie: ownerCookie });
+status(foldersAfter, 200, 'list after concurrent moves');
+const tree = new Map(foldersAfter.data.data.map(row => [row.id, row.parentId]));
+for (const id of [folderId, siblingId]) {
+  const seen = new Set();
+  let cursor = id;
+  while (cursor !== null) {
+    assert.ok(!seen.has(cursor), 'folder hierarchy must remain acyclic');
+    seen.add(cursor);
+    cursor = tree.get(cursor) ?? null;
+  }
+}
+
 const create = await request(prefix(dev) + '/secrets', {
   method: 'POST', cookie: ownerCookie,
   json: { key: 'API_TOKEN', value: 'private-value-1', folderId },
