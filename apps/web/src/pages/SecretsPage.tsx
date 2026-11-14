@@ -177,7 +177,7 @@ function SecretsManager({ projectId }: { projectId: string }) {
   const folders = useQuery({ queryKey: folderQueryKey, queryFn: () => foldersApi.list(projectId, activeId), enabled: Boolean(activeId) });
   const folderEntries = folders.data?.data ?? [];
   const folderPath = getFolderPath(folderEntries, folderId);
-  const currentFolder = folderPath?.at(-1) ?? null;
+  const currentFolder = folderPath ? folderEntries.find(f => f.id === folderPath.at(-1)?.id) ?? null : null;
   const currentFolderId = currentFolder?.id ?? null;
   const listKey = ['secrets', projectId, activeId, currentFolderId] as const;
   const secrets = useQuery({
