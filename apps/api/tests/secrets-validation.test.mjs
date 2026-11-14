@@ -22,3 +22,13 @@ test('limits encrypted payload to 16 KB in UTF-8', () => {
   assert.equal(validateSecretInput({ key: 'X', value: '😀'.repeat(4096) })?.key, 'X');
   assert.equal(validateSecretInput({ key: 'X', value: '😀'.repeat(4097) }), null);
 });
+
+test('validates optional secret destination folder', () => {
+  assert.deepEqual(validateSecretInput({ key: 'A', value: 'x', folderId: null }),
+    { key: 'A', value: 'x', folderId: null });
+  assert.deepEqual(validateSecretInput({ key: 'A', value: 'x', folderId: 'folder-1' }),
+    { key: 'A', value: 'x', folderId: 'folder-1' });
+  for (const folderId of ['', 14, false, 'x'.repeat(101)]) {
+    assert.equal(validateSecretInput({ key: 'A', value: 'x', folderId }), null);
+  }
+});

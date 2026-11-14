@@ -5,6 +5,7 @@ export type SecretMetadata = {
   environmentId: string;
   createdAt: string | number;
   updatedAt: string | number;
+  folderId: string | null;
 };
 
 const base = (import.meta.env.VITE_API_URL || 'http://localhost:8787').replace(/\/$/, '');
@@ -30,11 +31,12 @@ async function request<T>(
 }
 
 export const secretsApi = {
-  list: (projectId: string, environmentId: string) =>
-    request<{ data: SecretMetadata[] }>(projectId, environmentId, ''),
-  create: (projectId: string, environmentId: string, key: string, value: string) =>
+  list: (projectId: string, environmentId: string, folderId: string | null) =>
+    request<{ data: SecretMetadata[] }>(projectId, environmentId,
+      folderId ? `?folderId=${encodeURIComponent(folderId)}` : ''),
+  create: (projectId: string, environmentId: string, key: string, value: string, folderId: string | null) =>
     request<SecretMetadata>(projectId, environmentId, '', {
-      method: 'POST', body: JSON.stringify({ key, value }),
+      method: 'POST', body: JSON.stringify({ key, value, folderId }),
     }),
   save: (projectId: string, environmentId: string, id: string, key: string, value: string) =>
     request<SecretMetadata>(projectId, environmentId, `/${encodeURIComponent(id)}`, {
@@ -42,6 +44,10 @@ export const secretsApi = {
     }),
   reveal: (projectId: string, environmentId: string, id: string): Promise<{ value: string }> =>
     request(projectId, environmentId, `/${encodeURIComponent(id)}/reveal`, { method: 'POST' }),
+  move: (projectId: string, environmentId: string, id: string, folderId: string | null) =>
+    request<SecretMetadata>(projectId, environmentId, `/${encodeURIComponent(id)}/folder`, {
+      method: 'PATCH', body: JSON.stringify({ folderId }),
+    }),
   remove: (projectId: string, environmentId: string, id: string) =>
     request<void>(projectId, environmentId, `/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };

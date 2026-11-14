@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, index, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 // Core Better Auth SQLite models. Run Better Auth's schema checker after install.
 export const user = sqliteTable('user', {
  id: text('id').primaryKey(), name: text('name').notNull(),
@@ -70,12 +70,29 @@ export const projectDataKeys = sqliteTable('project_data_keys', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
+/** Project/environment-bound folder tree. parentKey is '' for root-level folders. */
+export const secretFolders = sqliteTable('secret_folders', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  environmentId: text('environment_id').notNull().references(() => environments.id, { onDelete: 'cascade' }),
+  parentId: text('parent_id').references((): AnySQLiteColumn => secretFolders.id, { onDelete: 'restrict' }),
+  parentKey: text('parent_key').notNull(),
+  name: text('name').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, t => [
+  uniqueIndex('secret_folders_sibling_name_unique').on(t.environmentId, t.parentKey, t.name),
+  index('secret_folders_project_environment_idx').on(t.projectId, t.environmentId),
+  index('secret_folders_parent_idx').on(t.environmentId, t.parentKey),
+]);
+
 /** Ciphertext only. Secret values are never stored as plaintext in D1. */
 export const secrets = sqliteTable('secrets', {
   id: text('id').primaryKey(),
   projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   environmentId: text('environment_id').notNull().references(() => environments.id, { onDelete: 'cascade' }),
   key: text('key').notNull(),
+  folderId: text('folder_id').references(() => secretFolders.id, { onDelete: 'restrict' }),
   encryptedValue: text('encrypted_value').notNull(),
   nonce: text('nonce').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),

@@ -8,19 +8,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authClient } from '../lib/auth-client';
 import { environmentsApi } from '../lib/environments-api';
 import { secretsApi, type SecretMetadata } from '../lib/secrets-api';
+import { foldersApi, type SecretFolder } from '../lib/folders-api';
 import { SignInPage } from './SignInPage';
 
 const keyIsValid = (key: string) => /^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(key);
 const valueIsValid = (value: string) => new TextEncoder().encode(value).byteLength <= 16384;
 
 function SecretRow({
-  secret, projectId, environmentId, onSaved, onDelete,
+  secret, projectId, environmentId, onSaved, onDelete, onMove,
 }: {
   secret: SecretMetadata;
   projectId: string;
   environmentId: string;
   onSaved: () => Promise<unknown>;
   onDelete: (secret: SecretMetadata) => void;
+  onMove: (secret: SecretMetadata) => void;
 }) {
   const [key, setKey] = useState(secret.key);
   const [value, setValue] = useState('');
@@ -133,8 +135,11 @@ function SecretRow({
               onClick={cancel}>×</IconButton>
           </Stack>
         ) : (
-          <IconButton aria-label={`Delete ${secret.key}`} color="default"
-            onClick={() => onDelete(secret)}>⋯</IconButton>
+          <Stack direction="row">
+            <Button size="small" onClick={() => onMove(secret)}>Move</Button>
+            <IconButton aria-label={`Delete ${secret.key}`} color="default"
+              onClick={() => onDelete(secret)}>×</IconButton>
+          </Stack>
         )}
       </Stack>
       {error && <Alert severity="error" sx={{ mt: 1 }} onClose={() => setError('')}>{error}</Alert>}
@@ -146,6 +151,12 @@ function SecretRow({
 function SecretsManager({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
   const [environmentId, setEnvironmentId] = useState('');
+  const [folderId, setFolderId] = useState<string | null>(null);
+  const [folderEditing, setFolderEditing] = useState<SecretFolder | 'new' | null>(null);
+  const [folderName, setFolderName] = useState('');
+  const [folderDeleting, setFolderDeleting] = useState<SecretFolder | null>(null);
+  const [moving, setMoving] = useState<SecretMetadata | null>(null);
+  const [moveTarget, setMoveTarget] = useState<string>('');
   const [adding, setAdding] = useState(false);
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
@@ -158,15 +169,57 @@ function SecretsManager({ projectId }: { projectId: string }) {
   });
   const entries = environments.data?.data ?? [];
   const activeId = entries.some((e) => e.id === environmentId) ? environmentId : (entries[0]?.id ?? '');
-  const listKey = ['secrets', projectId, activeId] as const;
+  const folderQueryKey = ['folders', projectId, activeId] as const;
+  const folders = useQuery({ queryKey: folderQueryKey, queryFn: () => foldersApi.list(projectId, activeId), enabled: Boolean(activeId) });
+  const folderEntries = folders.data?.data ?? [];
+  const currentFolder = folderEntries.find(f => f.id === folderId) ?? null;
+  const currentFolderId = currentFolder?.id ?? null;
+  const listKey = ['secrets', projectId, activeId, currentFolderId] as const;
   const secrets = useQuery({
     queryKey: listKey,
-    queryFn: () => secretsApi.list(projectId, activeId),
+    queryFn: () => secretsApi.list(projectId, activeId, currentFolderId),
     enabled: Boolean(activeId),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['secrets', projectId, activeId] });
+  const refreshFolders = () => queryClient.invalidateQueries({ queryKey: folderQueryKey });
+  const saveFolder = useMutation({
+    mutationFn: () => folderEditing === 'new'
+      ? foldersApi.create(projectId, activeId, folderName.trim(), currentFolderId)
+      : foldersApi.rename(projectId, activeId, (folderEditing as SecretFolder).id, folderName.trim()),
+    onSuccess: async () => {
+      setFolderEditing(null);
+      setFolderName('');
+      setError('');
+      await refreshFolders();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+  const deleteFolder = useMutation({
+    mutationFn: () => foldersApi.remove(projectId, activeId, folderDeleting!.id),
+    onSuccess: async () => {
+      if (folderDeleting?.id === currentFolderId) setFolderId(folderDeleting.parentId);
+      setFolderDeleting(null);
+      setError('');
+      await refreshFolders();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+  const moveSecret = useMutation({
+    mutationFn: () => secretsApi.move(projectId, activeId, moving!.id, moveTarget || null),
+    onSuccess: async () => {
+      setMoving(null);
+      setError('');
+      await refresh();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+  const openFolderEditor = (entry: SecretFolder | 'new') => {
+    setFolderEditing(entry);
+    setFolderName(entry === 'new' ? '' : entry.name);
+    setError('');
+  };
   const create = useMutation({
-    mutationFn: () => secretsApi.create(projectId, activeId, newKey.trim(), newValue),
+    mutationFn: () => secretsApi.create(projectId, activeId, newKey.trim(), newValue, currentFolderId),
     onSuccess: async () => {
       setNewKey('');
       setNewValue('');
@@ -210,6 +263,9 @@ function SecretsManager({ projectId }: { projectId: string }) {
           <Select id="secret-environment" value={activeId} size="small"
             onChange={(event) => {
               setEnvironmentId(event.target.value);
+              setFolderId(null);
+              setMoving(null);
+              setFolderEditing(null);
               setDeleting(null);
               closeCreate();
               setError('');
@@ -219,6 +275,29 @@ function SecretsManager({ projectId }: { projectId: string }) {
         </Stack>
       )}
       {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+      {activeId && (
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap" sx={{ mb: 2 }}>
+            <Button size="small" variant={currentFolderId === null ? 'contained' : 'text'} onClick={() => setFolderId(null)}>Root</Button>
+            {currentFolder && <Typography color="text.secondary">/ {currentFolder.name}</Typography>}
+            <Box sx={{ flexGrow: 1 }} />
+            {currentFolder && <>
+              <Button size="small" onClick={() => setFolderId(currentFolder.parentId)}>Up</Button>
+              <Button size="small" onClick={() => openFolderEditor(currentFolder)}>Rename</Button>
+              <Button size="small" color="error" onClick={() => setFolderDeleting(currentFolder)}>Delete</Button>
+            </>}
+            <Button size="small" variant="outlined" onClick={() => openFolderEditor('new')}>New folder</Button>
+          </Stack>
+          {folders.isError && <Alert severity="error">{folders.error.message}</Alert>}
+          <Stack direction="row" flexWrap="wrap" gap={1}>
+            {folderEntries.filter(f => f.parentId === currentFolderId).map(folder => (
+              <Button key={folder.id} variant="outlined" size="small" onClick={() => setFolderId(folder.id)}>
+                📁 {folder.name}
+              </Button>
+            ))}
+          </Stack>
+        </Paper>
+      )}
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
         {!activeId ? (
           <Typography color="text.secondary" sx={{ p: 3 }}>Create an environment to manage secrets.</Typography>
@@ -229,10 +308,46 @@ function SecretsManager({ projectId }: { projectId: string }) {
         ) : secrets.data.data.length === 0 ? (
           <Typography color="text.secondary" sx={{ p: 3 }}>No secrets in this environment.</Typography>
         ) : secrets.data.data.map((secret) => (
-          <SecretRow key={secret.id + ':' + activeId} secret={secret} projectId={projectId}
-            environmentId={activeId} onSaved={refresh} onDelete={setDeleting} />
+          <SecretRow key={secret.id + ':' + activeId + ':' + (currentFolderId ?? 'root')} secret={secret} projectId={projectId}
+            environmentId={activeId} onSaved={refresh} onDelete={setDeleting}
+            onMove={(entry) => { setMoving(entry); setMoveTarget(currentFolderId ?? ''); }} />
         ))}
       </Paper>
+      <Dialog open={folderEditing !== null} onClose={() => { if (!saveFolder.isPending) setFolderEditing(null); }} fullWidth maxWidth="xs">
+        <DialogTitle>{folderEditing === 'new' ? 'Create folder' : 'Rename folder'}</DialogTitle>
+        <Box component="form" onSubmit={event => { event.preventDefault(); if (folderName.trim().length > 0 && !saveFolder.isPending) saveFolder.mutate(); }}>
+          <DialogContent>
+            <TextField autoFocus fullWidth label="Folder name" value={folderName} onChange={event => setFolderName(event.target.value)}
+              slotProps={{ htmlInput: { maxLength: 60 } }} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setFolderEditing(null)} disabled={saveFolder.isPending}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={!folderName.trim() || saveFolder.isPending}>Save</Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
+      <Dialog open={folderDeleting !== null} onClose={() => setFolderDeleting(null)}>
+        <DialogTitle>Delete folder?</DialogTitle>
+        <DialogContent><Typography>Only empty folders can be deleted. Move or delete its contents first.</Typography></DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFolderDeleting(null)} disabled={deleteFolder.isPending}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => deleteFolder.mutate()} disabled={deleteFolder.isPending}>Delete</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={moving !== null} onClose={() => setMoving(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Move secret</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>Move {moving?.key} to:</Typography>
+          <Select fullWidth size="small" value={moveTarget} onChange={event => setMoveTarget(event.target.value)}>
+            <MenuItem value="">Root</MenuItem>
+            {folderEntries.map(folder => <MenuItem key={folder.id} value={folder.id}>{folder.name}</MenuItem>)}
+          </Select>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMoving(null)} disabled={moveSecret.isPending}>Cancel</Button>
+          <Button variant="contained" onClick={() => moveSecret.mutate()} disabled={moveSecret.isPending}>Move</Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={adding} onClose={closeCreate} fullWidth maxWidth="sm">
         <DialogTitle>Add secret</DialogTitle>
         <Box component="form" autoComplete="off" onSubmit={(event) => { event.preventDefault(); if (validNew && !create.isPending) create.mutate(); }}>
