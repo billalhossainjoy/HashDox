@@ -5,6 +5,7 @@ import { environments, projects } from '../db/schema';
 import type { AppBindings } from '../env';
 import { environmentSlug, validateEnvironmentName } from './validation';
 import { secretRoutes } from '../secrets/routes';
+import { folderRoutes } from '../folders/routes';
 
 export const environmentRoutes = new Hono<{ Bindings: AppBindings }>();
 
@@ -71,3 +72,5 @@ environmentRoutes.delete('/:environmentId', async (c) => {
 
 // Every secret endpoint is further protected by its own owner guard.
 environmentRoutes.route('/:environmentId/secrets', secretRoutes);
+
+environmentRoutes.route('/:environmentId/folders', folderRoutes);
