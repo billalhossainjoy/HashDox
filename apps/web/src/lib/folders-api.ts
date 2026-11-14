@@ -32,6 +32,10 @@ export const foldersApi = {
     request<SecretFolder>(projectId, environmentId, `/${encodeURIComponent(id)}`, {
       method: 'PATCH', body: JSON.stringify({ name }),
     }),
+  move: (projectId: string, environmentId: string, id: string, parentId: string | null) =>
+    request<SecretFolder>(projectId, environmentId, `/${encodeURIComponent(id)}/parent`, {
+      method: 'PATCH', body: JSON.stringify({ folderId: parentId }),
+    }),
   remove: (projectId: string, environmentId: string, id: string) =>
     request<void>(projectId, environmentId, `/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
