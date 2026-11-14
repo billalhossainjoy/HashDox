@@ -174,3 +174,31 @@ remains. This protects the reparent endpoint; other writers must also
 use these invariants. Future work should add database-level checks or
 triggers to enforce scope for **all** folder/secret mutations, including
 direct SQL/migrations and older preexisting data.
+
+## Audit pagination and retention — current behavior
+
+The owner-only audit feed now returns up to **50** events in descending
+timestamp/ID order, with an opaque `nextCursor` if more exist.
+Clients continue with `GET /api/projects/:projectId/audit?cursor=<nextCursor>`.
+This prevents records sharing the same millisecond timestamp from
+disappearing between pages. The legacy `before` timestamp query is rejected.
+Cursor values contain only audit timestamps and IDs; they are not credentials
+and remain scoped by the authorized project in the database query.
+
+Retention is **manual and local-only** in this stage. From `apps/api`:
+
+```bash
+node scripts/audit-retention.mjs --days 365
+# Only after verifying the dry-run result and approving irreversible deletion:
+node scripts/audit-retention.mjs --days 365 --apply
+```
+
+The default action counts eligible rows without changing them. The script
+refuses periods shorter than 30 days or longer than 3650 days and uses
+`wrangler d1 execute DB --local` exclusively. It does not schedule deletions,
+run against remote D1, or change production retention automatically.
+
+Audit events currently cascade when a **project** is deleted. This is not
+tamper-evident audit storage. Real production retention requires a documented
+legal/business retention decision, independent backups, export/restore testing,
+and access controls before any remote deletion is approved.
