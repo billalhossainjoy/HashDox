@@ -219,7 +219,7 @@ function SecretsManager({ projectId }: { projectId: string }) {
     setError('');
   };
   const create = useMutation({
-    mutationFn: () => secretsApi.create(projectId, activeId, newKey.trim(), newValue),
+    mutationFn: () => secretsApi.create(projectId, activeId, newKey.trim(), newValue, currentFolderId),
     onSuccess: async () => {
       setNewKey('');
       setNewValue('');
