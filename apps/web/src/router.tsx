@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/re
 import { AppShell } from './components/AppShell';
 import { HomePage } from './pages/HomePage';
 import { ProjectsPage } from './pages/ProjectsPage';
+import { EnvironmentsPage } from './pages/EnvironmentsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 const rootRoute = createRootRoute({
@@ -25,7 +26,13 @@ const projectsRoute = createRoute({
   component: ProjectsPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, projectsRoute]);
+const environmentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/projects/$projectId/environments',
+  component: EnvironmentsPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, projectsRoute, environmentRoute]);
 export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

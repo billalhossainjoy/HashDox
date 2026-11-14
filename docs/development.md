@@ -101,3 +101,29 @@ one or multiple projects. A signed-out user sees the Google sign-in screen.
 The frontend is not a substitute for server authorization. Deploy frontend and
 API under tested cookie and CORS settings; real Google OAuth end-to-end and
 live D1 integration tests remain outstanding.
+
+## Project environments
+
+New projects atomically receive **Development**, **Staging**, and
+**Production**. The default slugs are `development`, `staging`, and
+`production`. Existing projects created before this feature are **not**
+automatically backfilled; they can add environments manually. The UI
+opens at `/projects/:projectId/environments` through the Projects table.
+
+Owner-only routes (under the existing project auth middleware):
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/projects/:projectId/environments` | List environments |
+| POST | `/api/projects/:projectId/environments` | Create custom environment |
+| PATCH | `/api/projects/:projectId/environments/:environmentId` | Rename |
+| DELETE | `/api/projects/:projectId/environments/:environmentId` | Delete |
+
+The JSON request body for creation and rename is `{"name":"Preview"}`.
+Names are at most 60 characters; slugs are unique per project and **not
+changed by rename**, to preserve stable identities for upcoming secrets.
+Database-level foreign keys cascade deletion when the parent project is
+removed. The frontend confirms deletions.
+
+This stage stores only environment metadata, **not** secrets, access rules,
+or encryption keys. No remote D1 migrations are performed automatically.
